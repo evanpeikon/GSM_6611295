@@ -2,10 +2,10 @@
 This project was inspired by Figure 1 Lab, which helps users enhance their computational biology skills by recreating Figure 1 from modern biology papers. Instead of following the standard F1L format, I decided to put my own spin on it by replicating the findings of the paper titled [Single-cell sequencing deconvolutes cellular responses to exercise in human skeletal muscle](https://www.nature.com/articles/s42003-022-04088-z). Importantly, when I say "replicating the findings", I'm reffering to the outcomes reported by the investigators. The code in this project repository is my own, and my goal is for my findings to converge with those of the original investigators, despite often taking a different path to that end destination.
 
 This README is divided into two parts, as described below:
-- In the first first part, titled **Read and Understand Paper**, I'll dissect the paper and explain the key points.
-- Then, in the second part, **Data Accessibility**, I'll walk you through the processes of accessing the data from this paper and loading it into your project directory.
-- After that, the section titled **Data Processing** will cover the ins and outs of performing quality control, filtering, normalization, and dimensionality reduction.
-- Finally, the last section titled **Data Analysis** will be dedicated to reproducing analyses from the paper and/or other analyses using the data from this paper.
+- In the first first part, titled ```Read and Understand Paper```, I'll dissect the paper and explain the key points.
+- Then, in the second part, ```Data Accessibility```, I'll walk you through the processes of accessing the data from this paper, loading it into your project directory, and combining all sample data into a single AnnData object for downstream analysis.
+- After that, the section titled ```Data Processing``` will cover the ins and outs of performing quality control, filtering, normalization, and dimensionality reduction.
+- Finally, the last section titled ```Data Analysis``` will be dedicated to reproducing analyses from the paper and/or other analyses using the data from this paper.
 
 # 🧬 Read and Understand Paper
 Before loading any data or beginning exploratory data analysis, I read the paper twice. The first reading provides a broad overview of the project, while the second focuses on dissecting the researchers' methods and findings. In this section of my project's README, you'll find a detailed breakdown of each section of the paper. This breakdown will help you understand what the researchers did, why it’s important, and what they discovered.
@@ -83,6 +83,10 @@ The data in these files have undergone some initial data processing, including d
 
 The code block below demonstrates how to create to AnnData object for Skeltal Muscle Sample 1 (pre):
 ```
+import scanpy as sc
+import pandas as pd
+import anndata as ad
+
 adata_sample1_pre = sc.read_mtx('GSM6611295_P15306_5001_matrix.mtx').T
 adata_sample1_pre.obs_names = pd.read_csv('GSM6611295_P15306_5001_barcodes.tsv', header=None)[0]
 adata_sample1_pre.var_names = pd.read_csv('GSM6611295_P15306_5001_features.tsv', sep='\t', header=None)[0]
@@ -94,7 +98,7 @@ Now, before performing quality control, we need to combine all 8 AnnData objects
 ```
 adata_combined = ad.concat([adata_sample1_pre, adata_sample1_post,adata_sample2_pre, adata_sample2_post, adata_sample3_pre, adata_sample3_post, adata_sample3_DEEP_pre, adata_sample3_DEEP_post], axis=0, join='outer', label='batch', keys=['subject1_pre', 'subject1_post','subject2_pre', 'subject2_post', 'subject3_pre', 'subject3_post', 'subject3_DEEP_pre', 'subject3_DEEP_post'])
 ```
-Following that, we can get some summary stats about our new combined AnnData object named ```adata_combined```...
+Following that, we can get some summary stats about our new combined AnnData object named ```adata_combined```:
 ```
 num_cells = adata_combined.n_obs
 print(f"Number of cells: {num_cells}") # print the number of cells
@@ -109,12 +113,73 @@ batch_distribution = adata_combined.obs['batch'].value_counts()
 print("Batch distribution:")
 print(batch_distribution) # insect the batch distribution
 ```
-*You can find my code for creating a combined AnnData object [here](https://github.com/evanpeikon/lovric_2022/blob/main/code/data_accessibility/combineAnnData.py). 
+*Note- You can find my code for creating a combined AnnData object [here](https://github.com/evanpeikon/lovric_2022/blob/main/code/data_accessibility/combineAnnData.py). 
 
 Notably, the output of the code above will show that our new combined AnnData object contains 81,046 cels, which perfectly matches the data reported in the study. 
 
+# 🧬 Data Processing
+Before we can perform downstream analysis, we need to perform additional processing on our data. This includes quality control and filtering, normalization, and dimensionality reduction. 
 
+### Quality Control and Filtering 
+In the study the investigators report using Seurat to filter out low-quality cells that had too few (≤200) or too many (≥3000) expressed genes, and genes that were expressed in fewer than twenty cells. Additionally, cells with a high mitochondrial gene content (>15%) were excluded as well since a high mitochondrial gene content means cells have been lysed and can thus distort the results of downstream analyses.
 
+Because I'm more familiar with ScanPy than Seurat, I decided to use the former to perform QC and filtering, as demonstrated below:
+```
+import scanpy as sc
+# filter out cells with too few (≤200) or too many (≥3000) expressed genes
+adata_combined = adata_combined[adata_combined.obs['n_genes_by_counts'] > 200, :]
+adata_combined = adata_combined[adata_combined.obs['n_genes_by_counts'] < 3000, :]
+
+# filter out genes expressed in ≤20 cells
+sc.pp.filter_genes(adata_combined, min_cells=21)
+
+# calculate percentage of mito genes, then filter genes w/ mito gene content >15%
+adata_combined.var['mt'] = adata_combined.var_names.str.startswith('mt-')
+sc.pp.calculate_qc_metrics(adata_combined, qc_vars=['mt'], percent_top=None, log1p=False, inplace=True)
+adata_combined = adata_combined[adata_combined.obs['pct_counts_mt'] < 15, :]
+```
+*Note- You can find my code for performing QC [here](https://github.com/evanpeikon/lovric_2022/tree/main/code/data_processing).
+
+### Normalization
+After performing QC and filtering, the investigators used a global-scaling normalization method to ensure that differences in the amount of RNA didn't skew their results. This normalization method consisted of dividing each gene’s expression level by the total expression in that cell, multiplying the result by a scaling factor to standardize the values, and then applying a log transformation to stabilize the variance. Following that, the investigators identified 2000 high variables genes that showed significant variability across different cells, which are likely important for distinguishing different cell types or states. In the code block below, I used this same recipe to normalize my combined AnnData object and identify the 2000 most highly variable genes:
+```
+import scanpy as sc
+# apply global scaling normalization
+sc.pp.normalize_total(adata_combined, target_sum=1e4)  # scaling factor is 10,000 (1e4)
+sc.pp.log1p(adata_combined)  # log transformation
+
+# find the 2000 most highly variable genes
+sc.pp.highly_variable_genes(adata_combined, n_top_genes=2000, subset=True)
+
+print(adata_combined) 
+```
+*Note- You can find my code for performing normalization [here](https://github.com/evanpeikon/lovric_2022/tree/main/code/data_processing).
+
+### Dimensionality Reduction
+Now, single-cell RNA sequencing data consists of thousands of genes measured across thousands of cells, meaning the data is 'high dimensional'. This high-dimensional data can be challenging to analyze and interpret, so dimensionality reduction techniques are used to simplify the data by reducing the number of dimensions while retaining the most important information. 
+
+Before performing dimensionality reduction, the investigators in the study reported using z-transformation on their gene expression data. Z-transformation works by standardizing the data so that each gene has a mean of zero and a standard deviation of one, thus reducing the influence of genes with extremely high expression levels and ensuring that all genes contribute equally to the analysis. In the code block below, I'll show you how to perform Z-transformation:
+```
+sc.pp.scale(adata_combined, zero_center=True)
+```
+Following Z-transformation, the investigators used an elbow plot to determine the optimal number of principal components to retain in their dataset. An elbow plot shows the variance explained by each principal component, and the "elbow" point indicates the number of components that capture the majority of the variance in the data:
+```
+# perform PCA and plot elbow plot
+sc.tl.pca(adata_combined, svd_solver='arpack')
+sc.pl.pca_variance_ratio(adata_combined, log=True) 
+```
+The code above produces the following output:
+<img src="images/elbow_plot.png" alt="Description" width="400" height="300">
+
+Based on the results of the elbow plot, the investigators chose to retain 7 principal components in the data. Thus, I chose to use the same number when performing PCA, as demonstrated in the code below:
+```
+# perform PCA, retaining 7 components
+sc.tl.pca(adata_combined, svd_solver='arpack', n_comps=7)
+```
+*Note- you can find my combined code for performing Z-transformation and PCA [here](https://github.com/evanpeikon/lovric_2022/blob/main/code/data_processing/pca.py).
+
+### Clustering
+Finally, the last step of data processing the authors of the paper mentioned was 
 
 
 
