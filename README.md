@@ -1,7 +1,7 @@
 # 🧬 Project Introduction 
 This project was inspired by Figure 1 Lab, which helps users enhance their computational biology skills by recreating Figure 1 from modern biology papers. Instead of following the standard F1L format, I decided to put my own spin on it by replicating the findings of the paper titled [Single-cell sequencing deconvolutes cellular responses to exercise in human skeletal muscle](https://www.nature.com/articles/s42003-022-04088-z). Importantly, when I say "replicating the findings", I'm reffering to the outcomes reported by the investigators. The code in this project repository is my own, and my goal is for my findings to converge with those of the original investigators, despite often taking a different path to that end destination.
 
-This README is divided into two parts, as described below:
+This README is divided into four parts, as described below:
 - In the first first part, titled ```Read and Understand Paper```, I'll dissect the paper and explain the key points.
 - Then, in the second part, ```Data Accessibility```, I'll walk you through the processes of accessing the data from this paper, loading it into your project directory, and combining all sample data into a single AnnData object for downstream analysis.
 - After that, the section titled ```Data Processing``` will cover the ins and outs of performing quality control, filtering, normalization, and dimensionality reduction.
