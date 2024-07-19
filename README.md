@@ -131,12 +131,8 @@ import scanpy as sc
 adata_combined = adata_combined[adata_combined.obs['n_genes_by_counts'] > 200, :]
 adata_combined = adata_combined[adata_combined.obs['n_genes_by_counts'] < 3000, :]
 
-# filter out genes expressed in ≤20 cells
+# filter out genes expressed in ≤20 cells and with mito content >15%
 sc.pp.filter_genes(adata_combined, min_cells=21)
-
-# calculate percentage of mito genes, then filter genes w/ mito gene content >15%
-adata_combined.var['mt'] = adata_combined.var_names.str.startswith('mt-')
-sc.pp.calculate_qc_metrics(adata_combined, qc_vars=['mt'], percent_top=None, log1p=False, inplace=True)
 adata_combined = adata_combined[adata_combined.obs['pct_counts_mt'] < 15, :]
 ```
 
