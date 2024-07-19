@@ -113,7 +113,6 @@ batch_distribution = adata_combined.obs['batch'].value_counts()
 print("Batch distribution:")
 print(batch_distribution) # insect the batch distribution
 ```
-*Note- You can find my code for creating a combined AnnData object [here](https://github.com/evanpeikon/lovric_2022/blob/main/code/data_accessibility/combineAnnData.py). 
 
 Notably, the output of the code above will show that our new combined AnnData object contains 81,046 cels, which perfectly matches the data reported in the study. 
 
@@ -138,7 +137,6 @@ adata_combined.var['mt'] = adata_combined.var_names.str.startswith('mt-')
 sc.pp.calculate_qc_metrics(adata_combined, qc_vars=['mt'], percent_top=None, log1p=False, inplace=True)
 adata_combined = adata_combined[adata_combined.obs['pct_counts_mt'] < 15, :]
 ```
-*Note- You can find my code for performing QC [here](https://github.com/evanpeikon/lovric_2022/tree/main/code/data_processing).
 
 ### Normalization
 After performing QC and filtering, the investigators used a global-scaling normalization method to ensure that differences in the amount of RNA didn't skew their results. This normalization method consisted of dividing each gene’s expression level by the total expression in that cell, multiplying the result by a scaling factor to standardize the values, and then applying a log transformation to stabilize the variance. Following that, the investigators identified 2000 high variables genes that showed significant variability across different cells, which are likely important for distinguishing different cell types or states. In the code block below, I used this same recipe to normalize my combined AnnData object and identify the 2000 most highly variable genes:
@@ -153,7 +151,6 @@ sc.pp.highly_variable_genes(adata_combined, n_top_genes=2000, subset=True)
 
 print(adata_combined) 
 ```
-*Note- You can find my code for performing normalization [here](https://github.com/evanpeikon/lovric_2022/tree/main/code/data_processing).
 
 ### Dimensionality Reduction
 Now, single-cell RNA sequencing data consists of thousands of genes measured across thousands of cells, meaning the data is 'high dimensional'. This high-dimensional data can be challenging to analyze and interpret, so dimensionality reduction techniques are used to simplify the data by reducing the number of dimensions while retaining the most important information. 
@@ -176,11 +173,19 @@ Based on the results of the elbow plot, the investigators chose to retain 7 prin
 # perform PCA, retaining 7 components
 sc.tl.pca(adata_combined, svd_solver='arpack', n_comps=7)
 ```
-*Note- you can find my combined code for performing Z-transformation and PCA [here](https://github.com/evanpeikon/lovric_2022/blob/main/code/data_processing/pca.py).
 
 ### Clustering
-Finally, the last step of data processing the authors of the paper mentioned was 
+Finally, the last step of data processing the authors of the paper mentioned was using Ledin clustering, which identified clusters of similar cells in the dimensionally reduced dataset. hese clusters correspond to distinct cell populations or subpopulations. Additionally, these clusters can be visualized with a UMAP algorithm, which creates a 2D representation of the data, making it easier to interpret the clustering results visually, as demonstrated in the code block below:
+```
+n_pcs_available = adata_combined.obsm['X_pca'].shape[1]
+sc.pp.neighbors(adata_combined, n_pcs=n_pcs_available, use_rep='X_pca', metric='cosine', random_state=0)
+sc.tl.leiden(adata_combined, resolution=1.0, flavor="igraph", n_iterations=2, directed=False, random_state=0)
+sc.tl.umap(adata_combined)
+sc.pl.umap(adata_combined, color=['batch'], ncols=1, palette='Set1')
+```
+Which produces the following output:
+<img src="images/umap1.png" alt="Description" width="400" height="300">
 
-
+# 🧬 Data Analysis
 
 
