@@ -99,9 +99,7 @@ adatas = [create_anndata(*file_pair) for file_pair in files]
 
 adata_combined = ad.concat(adatas, axis=0, join='outer', label='batch', keys=['subject1_pre', 'subject1_post', 'subject2_pre', 'subject2_post', 'subject3_pre', 'subject3_post', 'subject3_DEEP_pre', 'subject3_DEEP_post'])
 ```
-*Note - you can find my code for creating AnnData objects for all 8 samples, then combining them intoa  single AnnData object [here](https://github.com/evanpeikon/lovric_2022/blob/main/code/data_accessibility/createAnnData.py).
-
-Following that, we can get some summary stats about our new combined AnnData object:
+After executing the code block above, we can get some summary stats about our new combined AnnData object:
 
 ```
 num_cells = adata_combined.n_obs
