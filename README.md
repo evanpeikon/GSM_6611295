@@ -166,6 +166,7 @@ sc.tl.pca(adata_combined, svd_solver='arpack')
 sc.pl.pca_variance_ratio(adata_combined, log=True) 
 ```
 The code above produces the following output:
+
 <img src="images/elbow_plot.png" alt="Description" width="400" height="300">
 
 Based on the results of the elbow plot, the investigators chose to retain 7 principal components in the data. Thus, I chose to use the same number when performing PCA, as demonstrated in the code below:
@@ -184,6 +185,7 @@ sc.tl.umap(adata_combined)
 sc.pl.umap(adata_combined, color=['batch'], ncols=1, palette='Set1')
 ```
 Which produces the following output:
+
 <img src="images/umap1.png" alt="Description" width="400" height="300">
 
 # 🧬 Data Analysis
