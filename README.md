@@ -81,22 +81,37 @@ gunzip GSM6611295_P15306_5001_matrix.mtx.gz
 
 The data in these files have undergone some initial data processing, including demultiplexing, alignment to a reference genome. However, the data has not undergone quality control, filtering, or normalization. Before we can perform these processes, we need to create an AnnData object from the data, which is a data structure specifically designed for handling annotated data matrices, commonly used in single-cell genomics and other biological data analyses.
 
-The code block below demonstrates how to create to AnnData object for Skeltal Muscle Sample 1 (pre):
+The code block below demonstrates how to create to create a combined AnnData object, for all 8 samples:
 ```
 import scanpy as sc
 import pandas as pd
 import anndata as ad
 
-adata_sample1_pre = sc.read_mtx('GSM6611295_P15306_5001_matrix.mtx').T
-adata_sample1_pre.obs_names = pd.read_csv('GSM6611295_P15306_5001_barcodes.tsv', header=None)[0]
-adata_sample1_pre.var_names = pd.read_csv('GSM6611295_P15306_5001_features.tsv', sep='\t', header=None)[0]
-print(adata_sample1_pre) # should read AnnData object with n_obs × n_vars = 2462 × 33538
+def create_anndata(matrix_file, barcodes_file, features_file):
+    adata = sc.read_mtx(matrix_file).T
+    adata.obs_names = pd.read_csv(barcodes_file, header=None)[0]
+    adata.var_names = pd.read_csv(features_file, sep='\t', header=None)[0]
+    return adata
+
+# create AnnData objects for each subject and condition
+files = [
+    ('GSM6611295_P15306_5001_matrix.mtx', 'GSM6611295_P15306_5001_barcodes.tsv', 'GSM6611295_P15306_5001_features.tsv'),
+    ('GSM6611296_P15306_5002_matrix.mtx', 'GSM6611296_P15306_5002_barcodes.tsv', 'GSM6611296_P15306_5002_features.tsv'),
+    ('GSM6611297_P14601_4004_matrix.mtx', 'GSM6611297_P14601_4004_barcodes.tsv', 'GSM6611297_P14601_4004_features.tsv'),
+    ('GSM6611298_P14601_4005_matrix.mtx', 'GSM6611298_P14601_4005_barcodes.tsv', 'GSM6611298_P14601_4005_features.tsv'),
+    ('GSM6611299_P15306_5003_matrix.mtx', 'GSM6611299_P15306_5003_barcodes.tsv', 'GSM6611299_P15306_5003_features.tsv'),
+    ('GSM6611300_P15306_5004_matrix.mtx', 'GSM6611300_P15306_5004_barcodes.tsv', 'GSM6611300_P15306_5004_features.tsv'),
+    ('GSM6611301_10X_20_003_matrix.mtx', 'GSM6611301_10X_20_003_barcodes.tsv', 'GSM6611301_10X_20_003_features.tsv'),
+    ('GSM6611302_10X_20_004_matrix.mtx', 'GSM6611302_10X_20_004_barcodes.tsv', 'GSM6611302_10X_20_004_features.tsv')]
+
+adatas = [create_anndata(*file_pair) for file_pair in files]
+
+# combine all AnnData objects into a single AnnData object
+adata_combined = ad.concat(adatas, axis=0, join='outer', label='batch', keys=['subject1_pre', 'subject1_post', 'subject2_pre', 'subject2_post', 'subject3_pre', 'subject3_post', 'subject3_DEEP_pre', 'subject3_DEEP_post'])
 ```
 *Note - you can find my code for creating all 8 AnnData objects [here](https://github.com/evanpeikon/lovric_2022/blob/main/code/data_accessibility/createAnnData.py).
 
-Now, before performing quality control, we need to combine all 8 AnnData objects into a single AnnData object, which ensures the same criteria are applied uniformly across samples, thus reducing potential batch effects. 
-```
-adata_combined = ad.concat([adata_sample1_pre, adata_sample1_post,adata_sample2_pre, adata_sample2_post, adata_sample3_pre, adata_sample3_post, adata_sample3_DEEP_pre, adata_sample3_DEEP_post], axis=0, join='outer', label='batch', keys=['subject1_pre', 'subject1_post','subject2_pre', 'subject2_post', 'subject3_pre', 'subject3_post', 'subject3_DEEP_pre', 'subject3_DEEP_post'])
+
 ```
 Following that, we can get some summary stats about our new combined AnnData object named ```adata_combined```:
 ```
